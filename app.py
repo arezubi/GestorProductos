@@ -11,7 +11,7 @@ class VentanaPrincipal():
         self.ventana.title("App Gestor de Productos")
         self.ventana.resizable(0,0)
         self.ventana.configure(background='#f4f6fb')
-        self.centrar_ventana(600, 600)
+        self.centrar_ventana(800, 600)
         self.ventana.wm_iconbitmap("icono.ico")
 
         #Creación del contenedor
@@ -33,11 +33,21 @@ class VentanaPrincipal():
         self.precio = ttk.Entry(frame, font=('Calibri', 13), width=30)
         self.precio.grid(row=1, column=1, padx=5, pady=5)
 
+        # Label y Entry Categoría
+        ttk.Label(frame, text="Categoría:", font=('Calibri', 13)).grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        self.categoria = ttk.Entry(frame, font=('Calibri', 13), width=30)
+        self.categoria.grid(row=2, column=1, padx=5, pady=5)
+
+        # Label y Entry Stock
+        ttk.Label(frame, text="Stock:", font=('Calibri', 13)).grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        self.stock = ttk.Entry(frame, font=('Calibri', 13), width=30)
+        self.stock.grid(row=3, column=1, padx=5, pady=5)
+
         #Botón Agregar Producto
         s = ttk.Style()
         s.configure('my.TButton', font = ('Calibri', 14, 'bold'))
         self.boton_agregar = ttk.Button(frame, text = "Guardar producto", command=self.add_producto, style='my.TButton')
-        self.boton_agregar.grid(row=3, columnspan=2, sticky=W+E)
+        self.boton_agregar.grid(row=4, columnspan=2, sticky=W+E)
 
         #Tabla de productos
         style = ttk.Style()
@@ -50,10 +60,17 @@ class VentanaPrincipal():
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
 
         #Estructura de la tabla
-        self.tabla = ttk.Treeview(height = 20, columns=2, style="mystyle.Treeview")
+        self.tabla = ttk.Treeview(height = 20, columns=("precio", "categoria", "stock"), style="mystyle.Treeview")
         self.tabla.grid(row=2, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
+        self.tabla.column("#0", width=150, anchor="w")
         self.tabla.heading("#0", text="Nombre", anchor="center")
-        self.tabla.heading("#1", text="Precio", anchor="center")
+        self.tabla.column("precio", width=100, anchor="center")
+        self.tabla.heading("precio", text="Precio", anchor="center")
+        self.tabla.column("categoria", width=150, anchor="center")
+        self.tabla.heading("categoria", text="Categoria", anchor="center")
+        self.tabla.column("stock", width=80, anchor="center")
+        self.tabla.heading("stock", text="Stock", anchor="center")
+
         self.get_productos()
 
         # Botones eliminar y editar
@@ -100,12 +117,23 @@ class VentanaPrincipal():
         for fila in registros_db:
             try:
                 precio_float = float(fila[2])
-                precio_formateado = f"{precio_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+                precio_formateado = (
+                        f"{precio_float:,.2f}"
+                        .replace(",", "X")
+                        .replace(".", ",")
+                        .replace("X", ".") + " €"
+                )
             except (ValueError, TypeError):
                 precio_formateado = fila[2]
 
-            self.tabla.insert('', 0, text = fila[1], values = (precio_formateado,))
-
+            categoria = fila[3] if len(fila) > 3 else ""
+            stock = fila[4] if len(fila) > 4 else ""
+            self.tabla.insert(
+                '',
+                'end',
+                text=fila[1],
+                values=(precio_formateado, categoria, stock)
+            )
     def validacion_nombre(self):
         return len(self.nombre.get().strip()) > 0
 
@@ -125,13 +153,15 @@ class VentanaPrincipal():
             self.mensaje['text'] = 'El precio es obligatorio y tiene que ser un número mayor que 0'
             return
 
-        query = 'INSERT INTO producto VALUES (NULL, ?, ?)'
-        parametros = (self.nombre.get(), self.precio.get())
+        query = 'INSERT INTO producto (nombre, precio, categoria, stock) VALUES (?, ?, ?, ?)'
+        parametros = (self.nombre.get(), self.precio.get(), self.categoria.get(), self.stock.get())
         self.db_consulta(query, parametros)
         print("Datos guardados correctamente")
         self.mensaje['text'] = f'Producto {self.nombre.get()} agregado correctamente'
         self.nombre.delete(0, END)
         self.precio.delete(0, END)
+        self.categoria.delete(0, END)
+        self.stock.delete(0, END)
 
         self.get_productos()
 
@@ -160,15 +190,19 @@ class VentanaPrincipal():
         try:
             nombre = self.tabla.item(self.tabla.selection())['text']
             precio = self.tabla.item(self.tabla.selection())['values'][0]
-            VentanaEditarProducto(self, nombre, precio, self.mensaje)
+            categoria = self.tabla.item(self.tabla.selection())['values'][1]
+            stock = self.tabla.item(self.tabla.selection())['values'][2]
+            VentanaEditarProducto(self, nombre, precio, categoria, stock, self.mensaje)
         except IndexError:
             self.mensaje['text'] = 'Por favor, seleccione un producto'
 
 class VentanaEditarProducto():
-    def __init__(self, ventana_principal, nombre, precio, mensaje):
+    def __init__(self, ventana_principal, nombre, precio, categoria, stock, mensaje):
         self.ventana_principal = ventana_principal
         self.nombre = nombre
         self.precio = precio
+        self.categoria = categoria
+        self.stock = stock
         self.mensaje = mensaje
 
         self.ventana_editar = Toplevel()
@@ -197,6 +231,22 @@ class VentanaEditarProducto():
         self.input_precio_nuevo = Entry (frame_ep, font = ('Calibri', 13))
         self.input_precio_nuevo.grid(row = 4, column = 1)
 
+        #Campo para categoría igual que nombre y precio
+        Label(frame_ep, text="Categoría antigua: ", font=('Calibri', 13)).grid(row=5, column=0)
+        Entry(frame_ep, textvariable=StringVar(self.ventana_editar, value=categoria), state='readonly',
+              font=('Calibri', 13)).grid(row=5, column=1)
+        Label(frame_ep, text="Categoría nueva: ", font=('Calibri', 13)).grid(row=6, column=0)
+        self.input_categoria_nueva = Entry(frame_ep, font=('Calibri', 13))
+        self.input_categoria_nueva.grid(row=6, column=1)
+
+        # Campo para stock igual que nombre y precio
+        Label(frame_ep, text="Stock antiguo: ", font=('Calibri', 13)).grid(row=7, column=0)
+        Entry(frame_ep, textvariable=StringVar(self.ventana_editar, value=stock), state='readonly',
+              font=('Calibri', 13)).grid(row=7, column=1)
+        Label(frame_ep, text="Stock nuevo: ", font=('Calibri', 13)).grid(row=8, column=0)
+        self.input_categoria_nueva = Entry(frame_ep, font=('Calibri', 13))
+        self.input_categoria_nueva.grid(row=8, column=1)
+
         #Botón Actualizar producto
         ttk.Style().configure("my.TButton", font = ('Calibri', 14, 'bold'))
         ttk.Button(frame_ep, text = "Actualizar Producto", style="my.TButton", command=self.actualizar).grid(row = 5, columnspan = 2, sticky = W + E)
@@ -204,10 +254,12 @@ class VentanaEditarProducto():
     def actualizar(self):
         nuevo_nombre = self.input_nombre_nuevo.get() or self.nombre
         nuevo_precio = self.input_precio_nuevo.get() or self.precio
+        nueva_categoria = self.input_categoria_nueva.get() or self.categoria
+        nuevo_stock = self.input_categoria_nueva.get() or self.stock
 
-        if nuevo_nombre and nuevo_precio:
-            query = 'UPDATE producto SET nombre = ?, precio = ? WHERE nombre = ?'
-            parametros = (nuevo_nombre, nuevo_precio, self.nombre)
+        if nuevo_nombre and nuevo_precio and nueva_categoria and nuevo_stock:
+            query = 'UPDATE producto SET nombre = ?, precio = ?, categoria = ?, stock = ? WHERE nombre = ?'
+            parametros = (nuevo_nombre, nuevo_precio, nueva_categoria, nuevo_stock, self.nombre)
             self.ventana_principal.db_consulta(query, parametros)
             self.mensaje['text'] = f'Producto {self.nombre} ha sido actualizado con éxito'
         else:
