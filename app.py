@@ -1,4 +1,5 @@
 from tkinter import ttk
+import tkinter as tk
 from tkinter import *
 import sqlite3
 
@@ -8,27 +9,29 @@ class VentanaPrincipal():
     def __init__(self, root):
         self.ventana = root
         self.ventana.title("App Gestor de Productos")
-        self.ventana.resizable(1,1)
+        self.ventana.resizable(0,0)
+        self.ventana.configure(background='#f4f6fb')
+        self.centrar_ventana(600, 600)
         self.ventana.wm_iconbitmap("icono.ico")
 
         #Creación del contenedor
-        frame = LabelFrame(self.ventana, text = "Registrar un nuevo producto", font= ('Calibri', 16, 'bold'))
-        frame.grid(row = 0, column = 0, columnspan = 3, pady = 20)
+        frame = ttk.LabelFrame(
+            self.ventana,
+            text = "Registrar un nuevo producto",
+            padding=(20,10)
+        )
+        frame.grid(row = 0, column = 0, columnspan = 3, pady = 20, padx = 20, sticky="ew")
 
-        #Label Nombre
-        self.etiqueta_nombre = Label(frame, text = "Nombre: ", font = ('Calibri', 13))
-        self.etiqueta_nombre.grid(row=1, column=0)
-        #Entry Nombre
-        self.nombre = Entry(frame, font = ('Calibri', 13))
+        #Label y Entry Nombre
+        ttk.Label(frame, text="Nombre:", font=('Calibri', 13)).grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.nombre = ttk.Entry(frame, font=('Calibri', 13), width=30)
         self.nombre.focus()
-        self.nombre.grid(row=1, column=1)
+        self.nombre.grid(row=0, column=1, padx=5, pady=5)
 
-        #Label Precio
-        self.etiqueta_precio = Label(frame, text = "Precio: ", font = ('Calibri', 13))
-        self.etiqueta_precio.grid(row=2, column=0)
-        #Entry Precio
-        self.precio = Entry(frame, font = ('Calibri', 13))
-        self.precio.grid(row=2, column=1)
+        #Label y Entry Precio
+        ttk.Label(frame, text="Precio:", font=('Calibri', 13)).grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.precio = ttk.Entry(frame, font=('Calibri', 13), width=30)
+        self.precio.grid(row=1, column=1, padx=5, pady=5)
 
         #Botón Agregar Producto
         s = ttk.Style()
@@ -38,29 +41,46 @@ class VentanaPrincipal():
 
         #Tabla de productos
         style = ttk.Style()
-        style.configure("mystyle.Treeview", highlightthickness=0, bd=0, font=('Calibri', 11))
-        style.configure("mystyle.Treeview.Heading", font=('Calibri', 13,'bold'))
+        style.theme_use('clam')
+        style.configure("mystyle.Treeview", font=('Calibri', 11), rowheight=28, background="#eaf0fa",
+                        fieldbackground="#eaf0fa")
+        style.configure("mystyle.Treeview.Heading", font=('Calibri', 13, 'bold'), background="#b3c6e7")
+        style.configure('Accent.TButton', font=('Calibri', 14, 'bold'), foreground="#fff", background="#4a90e2")
+        style.map('Accent.TButton', background=[('active', '#357ab8')])
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
 
         #Estructura de la tabla
         self.tabla = ttk.Treeview(height = 20, columns=2, style="mystyle.Treeview")
-        self.tabla.grid(row=4, column=0, columnspan=2)
-        self.tabla.heading("#0", text="Nombre", anchor=CENTER)
-        self.tabla.heading("#1", text="Precio", anchor=CENTER)
+        self.tabla.grid(row=2, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
+        self.tabla.heading("#0", text="Nombre", anchor="center")
+        self.tabla.heading("#1", text="Precio", anchor="center")
         self.get_productos()
 
-        #Botones eliminar y editar
-        s = ttk.Style()
-        s.configure('my.TButton', font = ('Calibri', 14, 'bold'))
-        self.boton_eliminar = ttk.Button(text = "ELIMINAR", command = self.del_producto, style='my.TButton')
-        self.boton_eliminar.grid(row=5, column=0, sticky=W+E)
-        self.boton_editar = ttk.Button(text = "EDITAR", command = self.edit_producto, style='my.TButton')
-        self.boton_editar.grid(row=5, column=1, sticky=W+E)
+        # Botones eliminar y editar
+        botones_frame = tk.Frame(self.ventana, bg="#f4f6fb")
+        botones_frame.grid(row=3, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+        self.boton_eliminar = ttk.Button(botones_frame, text="ELIMINAR", command=self.del_producto,
+                                         style='Accent.TButton')
+        self.boton_eliminar.pack(side="left", expand=True, fill="x", padx=5)
+        self.boton_editar = ttk.Button(botones_frame, text="EDITAR", command=self.edit_producto, style='Accent.TButton')
+        self.boton_editar.pack(side="left", expand=True, fill="x", padx=5)
+
+        self.ventana.grid_rowconfigure(2, weight=1)
+        self.ventana.grid_columnconfigure(0, weight=1)
 
 
         # Mensaje informativo para el usuario
-        self.mensaje = Label(text = ' ', fg = 'red')
-        self.mensaje.grid(row = 3, column = 0, columnspan = 2, sticky = W + E)
+        self.mensaje = tk.Label(self.ventana, text=' ', fg='red', bg="#f4f6fb", font=('Calibri', 12, 'bold'))
+        self.mensaje.grid(row=1, column=0, columnspan=2, sticky="ew", padx=20)
+
+
+    def centrar_ventana(self, ancho, alto):
+            self.ventana.update_idletasks()
+            w = self.ventana.winfo_screenwidth()
+            h = self.ventana.winfo_screenheight()
+            x = (w // 2) - (ancho // 2)
+            y = (h // 2) - (alto // 2)
+            self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     def db_consulta(self, consulta, parametros = ()):
         with sqlite3.connect(self.db) as con:
