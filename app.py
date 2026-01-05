@@ -5,14 +5,16 @@ from database.repository import ProductoRepository
 from database.config import db_config
 
 class VentanaPrincipal():
-    def __init__(self, root):
+    db = 'database/productos.db'
+
+    def __init__(self, ventana):
+        self.ventana = ventana
+        self.ventana.title("Gestor de Productos")
+
         # Inicializar la base de datos y el repositorio
         db_config.init_db()
         self.repo = ProductoRepository()
 
-        self.ventana = root
-        self.ventana.title("App Gestor de Productos")
-        self.ventana.resizable(0,0)
         self.ventana.configure(background='#f4f6fb')
         self.centrar_ventana(800, 600)
         self.ventana.wm_iconbitmap("icono.ico")
@@ -108,26 +110,28 @@ class VentanaPrincipal():
 
     def get_productos(self):
         # Limpiar la tabla
-        registros_tabla = self.tabla.get_children()
-        for fila in registros_tabla:
-            self.tabla.delete(fila)
+        registros = self.tabla.get_children()
+        for registro in registros:
+            self.tabla.delete(registro)
 
         # Obtener productos del repositorio
         productos = self.repo.obtener_todos_productos(orden_por='nombre', descendente=True)
 
         # Insertar productos en la tabla
         for producto in productos:
+            # Limpiar el precio si ya está formateado
+            precio_str = str(producto.precio).replace(' €', '').replace('.', '').replace(',', '.')
             try:
-                precio_float = float(producto.precio)
-                precio_formateado = (
-                        f"{precio_float:,.2f}"
-                        .replace(",", "X")
-                        .replace(".", ",")
-                        .replace("X", ".") + " €"
-                )
-            except (ValueError, TypeError):
-                precio_formateado = str(producto.precio)
+                precio_float = float(precio_str)
+            except ValueError:
+                precio_float = 0.0
 
+            precio_formateado = (
+                f"{precio_float:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".") + " €"
+            )
             self.tabla.insert(
                 '',
                 'end',
@@ -139,7 +143,20 @@ class VentanaPrincipal():
 
     def validacion_precio(self):
         try:
-            precio = float(self.precio.get())
+            precio_str = self.precio.get().replace('€', '').replace(' ', '').strip()
+            # Si tiene coma, es formato europeo
+            if ',' in precio_str:
+                precio_str = precio_str.replace('.', '').replace(',', '.')
+            elif '.' in precio_str:
+                # Múltiples puntos = separadores de miles
+                if precio_str.count('.') > 1:
+                    precio_str = precio_str.replace('.', '')
+                else:
+                    # Un solo punto con exactamente 3 dígitos después = separador de miles europeo
+                    partes = precio_str.split('.')
+                    if len(partes) == 2 and len(partes[1]) == 3 and len(partes[0]) >= 1:
+                        precio_str = precio_str.replace('.', '')
+            precio = float(precio_str)
             return precio > 0
         except ValueError:
             return False
@@ -150,13 +167,26 @@ class VentanaPrincipal():
             self.mensaje['text'] = 'El nombre es obligatorio y no puede quedar vacío'
             return
         if not self.validacion_precio():
-            self.mensaje['text'] = 'El precio es obligatorio y tiene que ser un número mayor que 0'
+            print("El precio es obligatorio")
+            self.mensaje['text'] = "El precio es obligatorio y debe ser un número mayor que cero"
             return
+
+        # Limpiar el precio antes de guardarlo
+        precio_str = self.precio.get().replace('€', '').replace(' ', '').strip()
+        if ',' in precio_str:
+            precio_str = precio_str.replace('.', '').replace(',', '.')
+        elif '.' in precio_str:
+            if precio_str.count('.') > 1:
+                precio_str = precio_str.replace('.', '')
+            else:
+                partes = precio_str.split('.')
+                if len(partes) == 2 and len(partes[1]) == 3 and len(partes[0]) >= 1:
+                    precio_str = precio_str.replace('.', '')
 
         # Crear producto usando el repositorio
         producto = self.repo.crear_producto(
             nombre=self.nombre.get(),
-            precio=self.precio.get(),
+            precio=precio_str,
             categoria=self.categoria.get(),
             stock=self.stock.get() if self.stock.get() else 0
         )
@@ -173,6 +203,10 @@ class VentanaPrincipal():
             self.mensaje['text'] = 'Error al guardar el producto'
 
     def del_producto(self):
+        #print(self.tabla.item(self.tabla.selection())['text'])
+        #print(self.tabla.item(self.tabla.selection())['values'])
+        #print(self.tabla.item(self.tabla.selection())['values'][0])
+
         self.mensaje['text'] = ''
         try:
             self.tabla.item(self.tabla.selection())['text'][0]
@@ -180,7 +214,6 @@ class VentanaPrincipal():
             self.mensaje['text'] = 'Por favor, seleccione un producto'
             return
 
-        self.mensaje['text'] = ''
         nombre = self.tabla.item(self.tabla.selection())['text']
 
         # Eliminar usando el repositorio
@@ -193,10 +226,13 @@ class VentanaPrincipal():
     def edit_producto(self):
         try:
             nombre = self.tabla.item(self.tabla.selection())['text']
-            precio = self.tabla.item(self.tabla.selection())['values'][0]
-            categoria = self.tabla.item(self.tabla.selection())['values'][1]
-            stock = self.tabla.item(self.tabla.selection())['values'][2]
-            VentanaEditarProducto(self, nombre, precio, categoria, stock, self.mensaje)
+            # Obtener el producto de la base de datos para tener el precio sin formato
+            producto = self.repo.obtener_producto_por_nombre(nombre)
+            if producto:
+                VentanaEditarProducto(self, producto.nombre, producto.precio,
+                                    producto.categoria, producto.stock, self.mensaje)
+            else:
+                self.mensaje['text'] = 'Error al obtener los datos del producto'
         except IndexError:
             self.mensaje['text'] = 'Por favor, seleccione un producto'
 
@@ -292,12 +328,28 @@ class VentanaEditarProducto():
         nueva_categoria = self.input_categoria_nueva.get() if self.input_categoria_nueva.get().strip() else None
         nuevo_stock_str = self.input_stock_nuevo.get()
 
-        # Extraer solo el número del precio antiguo (quitar el símbolo € y formato)
+        # Limpiar y convertir el precio (eliminar €, puntos de miles y convertir coma decimal a punto)
         precio_a_usar = None
         if nuevo_precio_str.strip():
             try:
-                precio_a_usar = float(nuevo_precio_str.replace(',', '.'))
-            except ValueError:
+                # Remover símbolo € y espacios
+                precio_limpio = nuevo_precio_str.replace('€', '').replace(' ', '').strip()
+                # Si tiene coma, es formato europeo: remover puntos (miles) y cambiar coma por punto (decimal)
+                if ',' in precio_limpio:
+                    precio_limpio = precio_limpio.replace('.', '').replace(',', '.')
+                # Si no tiene coma pero tiene punto(s)
+                elif '.' in precio_limpio:
+                    # Múltiples puntos = separadores de miles europeos
+                    if precio_limpio.count('.') > 1:
+                        precio_limpio = precio_limpio.replace('.', '')
+                    else:
+                        # Un solo punto con exactamente 3 dígitos después = separador de miles europeo
+                        partes = precio_limpio.split('.')
+                        if len(partes) == 2 and len(partes[1]) == 3 and len(partes[0]) >= 1:
+                            precio_limpio = precio_limpio.replace('.', '')
+                precio_a_usar = float(precio_limpio)
+            except ValueError as e:
+                print(f"Error al convertir precio '{nuevo_precio_str}': {e}")
                 pass
 
         stock_a_usar = None
@@ -315,13 +367,15 @@ class VentanaEditarProducto():
             categoria_nueva=nueva_categoria,
             stock_nuevo=stock_a_usar
         ):
-            self.mensaje['text'] = f'Producto {self.nombre} ha sido actualizado con éxito'
+            self.mensaje['text'] = f'Producto {self.nombre} actualizado correctamente'
             self.ventana_editar.destroy()
             self.ventana_principal.get_productos()
         else:
-            self.mensaje['text'] = f'No se pudo actualizar el producto {self.nombre}'
+            self.mensaje['text'] = f'Error al actualizar el producto {self.nombre}'
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     root = Tk()
     app = VentanaPrincipal(root)
     root.mainloop()
+
