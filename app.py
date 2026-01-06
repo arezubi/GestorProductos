@@ -119,13 +119,13 @@ class VentanaPrincipal():
 
         # Insertar productos en la tabla
         for producto in productos:
-            # Limpiar el precio si ya está formateado
-            precio_str = str(producto.precio).replace(' €', '').replace('.', '').replace(',', '.')
+                # El precio de la BD ya es float, convertirlo directamente
             try:
-                precio_float = float(precio_str)
-            except ValueError:
+                precio_float = float(producto.precio)
+            except (ValueError, TypeError):
                 precio_float = 0.0
 
+            # Formatear el precio en formato europeo (1.000,00 €)
             precio_formateado = (
                 f"{precio_float:,.2f}"
                 .replace(",", "X")
@@ -164,11 +164,13 @@ class VentanaPrincipal():
     def add_producto(self):
         if not self.validacion_nombre():
             print("El nombre es obligatorio")
-            self.mensaje['text'] = 'El nombre es obligatorio y no puede quedar vacío'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = '✗ El nombre es obligatorio y no puede quedar vacío'
             return
         if not self.validacion_precio():
             print("El precio es obligatorio")
-            self.mensaje['text'] = "El precio es obligatorio y debe ser un número mayor que cero"
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = "✗ El precio es obligatorio y debe ser un número mayor que cero"
             return
 
         # Limpiar el precio antes de guardarlo
@@ -193,14 +195,16 @@ class VentanaPrincipal():
 
         if producto:
             print("Datos guardados correctamente")
-            self.mensaje['text'] = f'Producto {self.nombre.get()} agregado correctamente'
+            self.mensaje['fg'] = 'green'
+            self.mensaje['text'] = f'✓ Producto {self.nombre.get()} agregado correctamente'
             self.nombre.delete(0, END)
             self.precio.delete(0, END)
             self.categoria.delete(0, END)
             self.stock.delete(0, END)
             self.get_productos()
         else:
-            self.mensaje['text'] = 'Error al guardar el producto'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = '✗ Error al guardar el producto'
 
     def del_producto(self):
         #print(self.tabla.item(self.tabla.selection())['text'])
@@ -211,17 +215,20 @@ class VentanaPrincipal():
         try:
             self.tabla.item(self.tabla.selection())['text'][0]
         except IndexError as e:
-            self.mensaje['text'] = 'Por favor, seleccione un producto'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = '✗ Por favor, seleccione un producto'
             return
 
         nombre = self.tabla.item(self.tabla.selection())['text']
 
         # Eliminar usando el repositorio
         if self.repo.eliminar_producto(nombre):
-            self.mensaje['text'] = f'Producto {nombre} eliminado correctamente'
+            self.mensaje['fg'] = 'green'
+            self.mensaje['text'] = f'✓ Producto {nombre} eliminado correctamente'
             self.get_productos()
         else:
-            self.mensaje['text'] = f'Error al eliminar el producto {nombre}'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = f'✗ Error al eliminar el producto {nombre}'
 
     def edit_producto(self):
         try:
@@ -232,9 +239,11 @@ class VentanaPrincipal():
                 VentanaEditarProducto(self, producto.nombre, producto.precio,
                                     producto.categoria, producto.stock, self.mensaje)
             else:
-                self.mensaje['text'] = 'Error al obtener los datos del producto'
+                self.mensaje['fg'] = 'red'
+                self.mensaje['text'] = '✗ Error al obtener los datos del producto'
         except IndexError:
-            self.mensaje['text'] = 'Por favor, seleccione un producto'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = '✗ Por favor, seleccione un producto'
 
 class VentanaEditarProducto():
     def __init__(self, ventana_principal, nombre, precio, categoria, stock, mensaje):
@@ -367,11 +376,13 @@ class VentanaEditarProducto():
             categoria_nueva=nueva_categoria,
             stock_nuevo=stock_a_usar
         ):
-            self.mensaje['text'] = f'Producto {self.nombre} actualizado correctamente'
+            self.mensaje['fg'] = 'green'
+            self.mensaje['text'] = f'✓ Producto {self.nombre} actualizado correctamente'
             self.ventana_editar.destroy()
             self.ventana_principal.get_productos()
         else:
-            self.mensaje['text'] = f'Error al actualizar el producto {self.nombre}'
+            self.mensaje['fg'] = 'red'
+            self.mensaje['text'] = f'✗ Error al actualizar el producto {self.nombre}'
 
 
 if __name__ == "__main__":
