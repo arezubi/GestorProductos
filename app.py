@@ -16,7 +16,7 @@ class VentanaPrincipal():
         self.repo = ProductoRepository()
 
         self.ventana.configure(background='#f4f6fb')
-        self.centrar_ventana(800, 600)
+        self.centrar_ventana(800, 800)
         self.ventana.wm_iconbitmap("icono.ico")
 
         #Creación del contenedor
