@@ -38,21 +38,28 @@ class VentanaPrincipal():
         self.precio = ttk.Entry(frame, font=('Calibri', 13), width=30)
         self.precio.grid(row=1, column=1, padx=5, pady=5)
 
-        # Label y Entry Categoría
+        # Label y Combobox Categoría
         ttk.Label(frame, text="Categoría:", font=('Calibri', 13)).grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self.categoria = ttk.Entry(frame, font=('Calibri', 13), width=30)
+        self.categoria = ttk.Combobox(frame, font=('Calibri', 13), width=28, state='readonly')
+        self.categoria['values'] = ('Electrónica', 'Informática', 'Audio', 'Video', 'Telefonía',
+                                     'Gaming', 'Accesorios', 'Hogar', 'Portátiles', 'Tablets', 'Otro')
+        self.categoria.current(0)  # Seleccionar primera opción por defecto
         self.categoria.grid(row=2, column=1, padx=5, pady=5)
 
-        # Label y Entry Stock
+        # Label y Spinbox Stock
         ttk.Label(frame, text="Stock:", font=('Calibri', 13)).grid(row=3, column=0, padx=5, pady=5, sticky="w")
-        self.stock = ttk.Entry(frame, font=('Calibri', 13), width=30)
+        self.stock = ttk.Spinbox(frame, font=('Calibri', 13), width=28, from_=0, to=9999, increment=1)
+        self.stock.set(0)  # Valor por defecto
         self.stock.grid(row=3, column=1, padx=5, pady=5)
 
         #Botón Agregar Producto
         s = ttk.Style()
         s.configure('my.TButton', font = ('Calibri', 14, 'bold'))
         self.boton_agregar = ttk.Button(frame, text = "Guardar producto", command=self.add_producto, style='my.TButton')
-        self.boton_agregar.grid(row=4, columnspan=2, sticky=W+E)
+        self.boton_agregar.grid(row=4, columnspan=2, sticky=W+E, pady=(10,5))
+
+        # Separador visual
+        ttk.Separator(frame, orient='horizontal').grid(row=5, columnspan=2, sticky='ew', pady=10)
 
         #Tabla de productos
         style = ttk.Style()
@@ -90,13 +97,33 @@ class VentanaPrincipal():
         self.boton_editar = ttk.Button(botones_frame, text="EDITAR", command=self.edit_producto, style='Accent.TButton')
         self.boton_editar.pack(side="left", expand=True, fill="x", padx=5)
 
+        # Panel de estadísticas con widgets adicionales
+        stats_frame = ttk.LabelFrame(self.ventana, text="📊 Estadísticas del Inventario", padding=(15, 10))
+        stats_frame.grid(row=4, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+
+        # Etiqueta de total de productos
+        self.label_total = ttk.Label(stats_frame, text="Total de productos: 0", font=('Calibri', 11, 'bold'))
+        self.label_total.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+
+        # Progressbar para nivel de inventario
+        ttk.Label(stats_frame, text="Nivel de inventario:", font=('Calibri', 10)).grid(row=1, column=0, padx=10, pady=2, sticky="w")
+        self.progressbar_inventario = ttk.Progressbar(stats_frame, length=300, mode='determinate', style='success.Horizontal.TProgressbar')
+        self.progressbar_inventario.grid(row=1, column=1, padx=10, pady=2, sticky="w")
+        self.label_inventario = ttk.Label(stats_frame, text="0%", font=('Calibri', 10))
+        self.label_inventario.grid(row=1, column=2, padx=5, pady=2)
+
+        # Configurar estilo para Progressbar
+        style.configure('success.Horizontal.TProgressbar', background='#4CAF50', troughcolor='#e0e0e0')
+
         self.ventana.grid_rowconfigure(2, weight=1)
         self.ventana.grid_columnconfigure(0, weight=1)
 
+        # Actualizar estadísticas
+        self.actualizar_estadisticas()
 
         # Mensaje informativo para el usuario
         self.mensaje = tk.Label(self.ventana, text=' ', fg='red', bg="#f4f6fb", font=('Calibri', 12, 'bold'))
-        self.mensaje.grid(row=1, column=0, columnspan=2, sticky="ew", padx=20)
+        self.mensaje.grid(row=5, column=0, columnspan=2, sticky="ew", padx=20, pady=5)
 
 
     def centrar_ventana(self, ancho, alto):
@@ -107,6 +134,32 @@ class VentanaPrincipal():
             y = (h // 2) - (alto // 2)
             self.ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
+    def actualizar_estadisticas(self):
+        """Actualiza las estadísticas del inventario"""
+        productos = self.repo.obtener_todos_productos()
+        total_productos = len(productos)
+
+        # Actualizar total de productos
+        self.label_total.config(text=f"Total de productos: {total_productos}")
+
+        # Calcular stock total y porcentaje (asumimos un máximo de 500 para el ejemplo)
+        stock_total = sum(p.stock for p in productos)
+        stock_maximo = 500  # Puedes ajustar este valor
+        porcentaje = min((stock_total / stock_maximo) * 100, 100) if stock_maximo > 0 else 0
+
+        # Actualizar progressbar
+        self.progressbar_inventario['value'] = porcentaje
+        self.label_inventario.config(text=f"{int(porcentaje)}% ({stock_total}/{stock_maximo})")
+
+        # Cambiar color según nivel
+        if porcentaje < 30:
+            self.progressbar_inventario.config(style='danger.Horizontal.TProgressbar')
+            ttk.Style().configure('danger.Horizontal.TProgressbar', background='#f44336')
+        elif porcentaje < 70:
+            self.progressbar_inventario.config(style='warning.Horizontal.TProgressbar')
+            ttk.Style().configure('warning.Horizontal.TProgressbar', background='#FF9800')
+        else:
+            self.progressbar_inventario.config(style='success.Horizontal.TProgressbar')
 
     def get_productos(self):
         # Limpiar la tabla
@@ -199,9 +252,10 @@ class VentanaPrincipal():
             self.mensaje['text'] = f'✓ Producto {self.nombre.get()} agregado correctamente'
             self.nombre.delete(0, END)
             self.precio.delete(0, END)
-            self.categoria.delete(0, END)
-            self.stock.delete(0, END)
+            self.categoria.current(0)  # Resetear al primer valor del combobox
+            self.stock.set(0)  # Resetear spinbox a 0
             self.get_productos()
+            self.actualizar_estadisticas()  # Actualizar estadísticas
         else:
             self.mensaje['fg'] = 'red'
             self.mensaje['text'] = '✗ Error al guardar el producto'
@@ -226,6 +280,7 @@ class VentanaPrincipal():
             self.mensaje['fg'] = 'green'
             self.mensaje['text'] = f'✓ Producto {nombre} eliminado correctamente'
             self.get_productos()
+            self.actualizar_estadisticas()  # Actualizar estadísticas
         else:
             self.mensaje['fg'] = 'red'
             self.mensaje['text'] = f'✗ Error al eliminar el producto {nombre}'
@@ -311,9 +366,17 @@ class VentanaEditarProducto():
         entry_categoria_antigua.config(state='readonly')
         entry_categoria_antigua.grid(row=5, column=1, pady=5, padx=5)
 
-        # Categoría nueva
+        # Categoría nueva (Combobox)
         ttk.Label(frame_ep, text="Categoría nueva:", font=('Calibri', 13)).grid(row=6, column=0, pady=5, sticky='w', padx=5)
-        self.input_categoria_nueva = ttk.Entry(frame_ep, font=('Calibri', 13))
+        self.input_categoria_nueva = ttk.Combobox(frame_ep, font=('Calibri', 13), width=16, state='readonly')
+        self.input_categoria_nueva['values'] = ('Electrónica', 'Informática', 'Audio', 'Video', 'Telefonía',
+                                                 'Gaming', 'Accesorios', 'Hogar', 'Portátiles', 'Tablets', 'Otro')
+        # Seleccionar la categoría actual si existe en la lista
+        try:
+            index = self.input_categoria_nueva['values'].index(categoria)
+            self.input_categoria_nueva.current(index)
+        except ValueError:
+            self.input_categoria_nueva.current(0)
         self.input_categoria_nueva.grid(row=6, column=1, pady=5, padx=5)
 
         # Stock antiguo
@@ -323,9 +386,10 @@ class VentanaEditarProducto():
         entry_stock_antiguo.config(state='readonly')
         entry_stock_antiguo.grid(row=7, column=1, pady=5, padx=5)
 
-        # Stock nuevo
+        # Stock nuevo (Spinbox)
         ttk.Label(frame_ep, text="Stock nuevo:", font=('Calibri', 13)).grid(row=8, column=0, pady=5, sticky='w', padx=5)
-        self.input_stock_nuevo = ttk.Entry(frame_ep, font=('Calibri', 13))
+        self.input_stock_nuevo = ttk.Spinbox(frame_ep, font=('Calibri', 13), width=16, from_=0, to=9999, increment=1)
+        self.input_stock_nuevo.set(stock)  # Establecer valor actual
         self.input_stock_nuevo.grid(row=8, column=1, pady=5, padx=5)
 
         # Botón Actualizar producto
@@ -380,6 +444,7 @@ class VentanaEditarProducto():
             self.mensaje['text'] = f'✓ Producto {self.nombre} actualizado correctamente'
             self.ventana_editar.destroy()
             self.ventana_principal.get_productos()
+            self.ventana_principal.actualizar_estadisticas()  # Actualizar estadísticas
         else:
             self.mensaje['fg'] = 'red'
             self.mensaje['text'] = f'✗ Error al actualizar el producto {self.nombre}'
