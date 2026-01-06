@@ -19,18 +19,6 @@ class ProductoRepository:
         return self.session
 
     def crear_producto(self, nombre, precio, categoria='', stock=0):
-        """
-        Crea un nuevo producto en la base de datos
-
-        Args:
-            nombre (str): Nombre del producto
-            precio (float): Precio del producto
-            categoria (str): Categoría del producto
-            stock (int): Cantidad en stock
-
-        Returns:
-            Producto: El producto creado o None si hubo error
-        """
         session = self._get_session()
         try:
             nuevo_producto = Producto(
@@ -49,16 +37,6 @@ class ProductoRepository:
             return None
 
     def obtener_todos_productos(self, orden_por='nombre', descendente=True):
-        """
-        Obtiene todos los productos de la base de datos
-
-        Args:
-            orden_por (str): Campo por el cual ordenar (nombre, precio, categoria, stock)
-            descendente (bool): Si True, orden descendente; si False, ascendente
-
-        Returns:
-            list: Lista de productos
-        """
         session = self._get_session()
         try:
             query = session.query(Producto)
@@ -76,15 +54,6 @@ class ProductoRepository:
             return []
 
     def obtener_producto_por_nombre(self, nombre):
-        """
-        Obtiene un producto por su nombre
-
-        Args:
-            nombre (str): Nombre del producto
-
-        Returns:
-            Producto: El producto encontrado o None
-        """
         session = self._get_session()
         try:
             return session.query(Producto).filter(Producto.nombre == nombre).first()
@@ -93,15 +62,6 @@ class ProductoRepository:
             return None
 
     def obtener_producto_por_id(self, id_producto):
-        """
-        Obtiene un producto por su ID
-
-        Args:
-            id_producto (int): ID del producto
-
-        Returns:
-            Producto: El producto encontrado o None
-        """
         session = self._get_session()
         try:
             return session.query(Producto).filter(Producto.id == id_producto).first()
@@ -111,19 +71,6 @@ class ProductoRepository:
 
     def actualizar_producto(self, nombre_antiguo, nombre_nuevo=None, precio_nuevo=None,
                           categoria_nueva=None, stock_nuevo=None):
-        """
-        Actualiza un producto existente
-
-        Args:
-            nombre_antiguo (str): Nombre actual del producto
-            nombre_nuevo (str): Nuevo nombre (opcional)
-            precio_nuevo (float): Nuevo precio (opcional)
-            categoria_nueva (str): Nueva categoría (opcional)
-            stock_nuevo (int): Nuevo stock (opcional)
-
-        Returns:
-            bool: True si se actualizó correctamente, False en caso contrario
-        """
         session = self._get_session()
         try:
             producto = self.obtener_producto_por_nombre(nombre_antiguo)
@@ -146,15 +93,6 @@ class ProductoRepository:
             return False
 
     def eliminar_producto(self, nombre):
-        """
-        Elimina un producto de la base de datos
-
-        Args:
-            nombre (str): Nombre del producto a eliminar
-
-        Returns:
-            bool: True si se eliminó correctamente, False en caso contrario
-        """
         session = self._get_session()
         try:
             producto = self.obtener_producto_por_nombre(nombre)
@@ -169,15 +107,6 @@ class ProductoRepository:
             return False
 
     def buscar_productos(self, termino):
-        """
-        Busca productos que contengan el término en nombre o categoría
-
-        Args:
-            termino (str): Término de búsqueda
-
-        Returns:
-            list: Lista de productos que coinciden
-        """
         session = self._get_session()
         try:
             return session.query(Producto).filter(
@@ -189,7 +118,6 @@ class ProductoRepository:
             return []
 
     def cerrar(self):
-        """Cierra la sesión de base de datos"""
         if self.session:
             self.session.close()
             self.session = None

@@ -5,16 +5,6 @@
 SQLAlchemy>=2.0.0
 
 # Base de datos SQLite (incluida en Python)
-# Si deseas usar PostgreSQL, MySQL o SQL Server, descomenta las siguientes líneas:
-
-# PostgreSQL
-# psycopg2-binary>=2.9.0
-
-# MySQL
-# PyMySQL>=1.1.0
-
-# SQL Server
-# pyodbc>=5.0.0
 
 # Gestión de variables de entorno (opcional)
 # python-dotenv>=1.0.0
